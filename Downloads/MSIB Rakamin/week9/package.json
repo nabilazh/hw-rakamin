@@ -1,12 +1,12 @@
 {
   "name": "week9",
   "version": "1.0.0",
-  "description": "",
+  "description": "homework week 9",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "nabila",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -18,5 +18,14 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
     "winston": "^3.11.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nabilazh/homework-week9.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nabilazh/homework-week9/issues"
+  },
+  "homepage": "https://github.com/nabilazh/homework-week9#readme"
 }

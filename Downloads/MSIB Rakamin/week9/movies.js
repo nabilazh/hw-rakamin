@@ -1,102 +1,122 @@
-var express = require('express');
-var router = express.Router();
-var movies = [
-    {id: 101, name: "La la land", year: 2021, rating: 8.8},
-    {id: 102, name: "Me Before You", year: 2020, rating: 8.4},
-    {id: 103, name: "Inception", year: 2018, rating: 8.1},
-    {id: 104, name: "The Conjuring", year: 2014, rating: 8.3},
-    {id: 105, name: "A Man Called Otto", year: 2022, rating: 8.9}
-];
+const express = require('express');
+const router = express.Router();
+const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
+const { pool } = require('./db'); 
 
-router.get('/:id([0-9]{3,})', function(req, res){
-    var currMovie = movies.filter(function (movie) {
-        if (movie.id == req.params.id) {
-            return true;
-        }
+// Middleware untuk otorisasi menggunakan token JWT
+const authenticateToken = (req, res, next) => {
+    const token = req.header('Authorization');
+    if (!token) return res.status(401).send('Akses ditolak.');
+  
+    jwt.verify(token, 'halo', (err, user) => {
+      if (err) return res.status(403).send('Token tidak valid.');
+      req.user = user;
+      next();
     });
+  };
 
-    if (currMovie.length == 1) {
-        res.json(currMovie[0]);
-    } else {
-        res.status(404);
-        res.json({message: 'Not Found'});
-    }
+// Endpoint untuk mendapatkan data movies dengan pagination
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 10;
+    const offset = (page - 1) * limit;
+
+    // Lakukan kueri ke basis data untuk mengambil data movies dengan pagination
+    const { rows } = await pool.query('SELECT * FROM movies OFFSET $1 LIMIT $2', [offset, limit]);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching movies from database:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-router.post('/', function (req, res) {
-    if (
-        !req.body.name ||
-        !req.body.year.toString().match(/^[0-9]{4}$/g) ||
-        !req.body.rating.toString().match(/^[0-9]\.[0-9]$/g)
-    ) {
-        res.status(400);
-        res.json({message: 'Bad Request'});
-    } else {
-        var newId = movies[movies.length - 1].id + 1;
-        movies.push({
-            id: newId,
-            name: req.body.name,
-            year: req.body.year,
-            rating: req.body.rating,
-        });
-        res.json({ message: 'New movie created', location: '/movies/' + newId});
-    }
+// Endpoint untuk membuat movie baru
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { title, director, year } = req.body;
+
+    // menambahkan movie baru
+    const { rows } = await pool.query('INSERT INTO movies (title, director, year) VALUES ($1, $2, $3) RETURNING *', [title, director, year]);
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error('Error creating movie:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-router.put('/:id', function (req, res) {
-    if (
-        !req.body.name ||
-        !req.body.year.toString().match(/^[0-9]{4}$/g) ||
-        !req.body.rating.toString().match(/^[0-9]\.[0-9]$/g) ||
-        !req.body.params.id.toString().match(/^[0-9]{3,}$/g)
-    ) {
-        res.status(400);
-        res.json({message: 'Bad Request'});
-    } else {
-        var updateIndex = movies
-        .map(function (movie) {
-            return movie.id;
-        })
-        .indexOf(parseInt(req.params.id));
+// Endpoint untuk mendapatkan semua movies
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    // mengambil seluruh movies
+    const { rows } = await pool.query('SELECT * FROM movies');
 
-    if (updateIndex === -1) {
-        movies.push({
-            id: req.params.id,
-            name:req.body.name,
-            year: req.body.year,
-            rating:req.body.rating,
-        });
-        res.json({
-            message: 'New Movie Created.',
-            location: '/movies/' + req.params.id,
-        });
-    } else {
-        movies[updateIndex] = {
-            id: req.params.id,
-            name:req.body.name,
-            year: req.body.year,
-            rating:req.body.rating,
-        };
-        res.json({
-            message: 'Movie id' + req.params.id + 'updated.',
-            location: '/movies/' + req.params.id,
-        });
-    }
-}
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching movies:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-router.delete('/:id', function (req, res) {
-    var removeIndex = movies
-    .map(function (movie) {
-        return movie.id;
-    })
-    .indexOf(req.params.id);
+// Endpoint untuk mendapatkan movie berdasarkan ID
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const movieId = req.params.id;
 
-    if (removeIndex === -1) {
-        res.json({ message: 'Not found'});
-    } else {
-        movies.splice(removeIndex, 1);
-        res.send({ message: 'Movie id' + req.params.id + ' removed.'});
+    // mengambil movie berdasarkan ID
+    const { rows } = await pool.query('SELECT * FROM movies WHERE id = $1', [movieId]);
+
+    if (rows.length === 0) {
+      return res.status(404).send('Movie not found.');
     }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error fetching movie:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
+
+// Endpoint untuk memperbarui movie berdasarkan ID
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const movieId = req.params.id;
+    const { title, director, year } = req.body;
+
+    // memperbarui movie berdasarkan ID
+    const { rows } = await pool.query('UPDATE movies SET title = $1, director = $2, year = $3 WHERE id = $4 RETURNING *', [title, director, year, movieId]);
+
+    if (rows.length === 0) {
+      return res.status(404).send('Movie not found.');
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error updating movie:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Endpoint untuk menghapus movie berdasarkan ID
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const movieId = req.params.id;
+
+    // menghapus movie berdasarkan ID
+    const { rows } = await pool.query('DELETE FROM movies WHERE id = $1 RETURNING *', [movieId]);
+
+    if (rows.length === 0) {
+      return res.status(404).send('Movie not found.');
+    }
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error deleting movie:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 module.exports = router;
