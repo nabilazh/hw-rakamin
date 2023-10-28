@@ -1,0 +1,19 @@
+{
+  "name": "week11",
+  "version": "1.0.0",
+  "description": "homework week11",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nabilazh/hw-week11.git"
+  },
+  "author": "nabilazh",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nabilazh/hw-week11/issues"
+  },
+  "homepage": "https://github.com/nabilazh/hw-week11#readme"
+}
